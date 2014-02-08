@@ -1,7 +1,9 @@
 Feedbin
 =======
+[![Code Climate](https://codeclimate.com/github/feedbin/feedbin.png)](https://codeclimate.com/github/feedbin/feedbin)
+[![Build Status](https://travis-ci.org/feedbin/feedbin.png?branch=master)](https://travis-ci.org/feedbin/feedbin)
 
-Feedbin is a simple, fast and nice looking RSS reader. 
+Feedbin is a simple, fast and nice looking RSS reader.
 
 ![Feedbin Screenshot](https://raw.github.com/feedbin/feedbin/master/app/assets/images/screenshots/_main.png)
 
@@ -10,12 +12,12 @@ Introduction
 
 Feedbin is a web based RSS reader. It provides a user interface for reading and managing feeds as well as a [REST-like API](https://github.com/feedbin/feedbin-api) for clients to connect to.
 
+If you would like to try Feedbin out you can [sign up](https://feedbin.me/) for an account.
+
 The main Feedbin project is a [Rails 4.0](http://rubyonrails.org/) application. In addition to the main project there are several other services that provide additional functionality. None of these services are required to get Feedbin running locally, but they all provide important functionality that you would want for a production install.
 
  - [**refresher:**](https://github.com/feedbin/refresher)
    Refresher is the service that does feed refreshing. Feed refreshes are scheduled as background jobs using [Sidekiq](https://github.com/mperham/sidekiq). Refresher is kept separate so it can be scaled independently. It's also a benefit to not have to load all of Rails for this service.
- - [**polyptych:**](https://github.com/feedbin/polyptych)
-   Polyptych is an API for fetching favicons. Favicons are compiled into a singe CSS file as base64 encoded background images. Polyptych is another Rails App. 
  - [**camo:**](https://github.com/atmos/camo)
    Camo is an https image proxy. In production Feedbin is SSL only. One issue with SSL is all assets must be served over SSL as well or the browser will show insecure content warnings. Camo proxies all image requests through an SSL enabled host to prevent this.
 
@@ -43,6 +45,7 @@ Feedbin uses environment variables for configuration. Feedbin will run without a
 | CAMO_KEY                 | Used to rewrite assets to use https - https://github.com/atmos/camo                |
 | DATABASE_URL             | Database connection string - postgres://USER:PASS@IP:PORT/DATABASE                 |
 | DEFAULT_URL_OPTIONS_HOST | Mailer host - feedbin.me                                                           |
+| ELASTICSEARCH_URL        | search endpoint - http://localhost:9200                                            |
 | FEEDBIN_HOMEPAGE_REPO    | Git URL to a Rails engine that provides a custom homepage                          |
 | FROM_ADDRESS             | Used as a reply-to email address                                                   |
 | GAUGES_SITE_ID           | [gaug.es](http://gaug.es) analytics identifier                                     |
@@ -51,10 +54,9 @@ Feedbin uses environment variables for configuration. Feedbin will run without a
 | LIBRATO_TOKEN            | Used for reporting stats - http://metrics.librato.com                              |
 | LIBRATO_USER             | Used for reporting stats - http://metrics.librato.com                              |
 | MEMCACHED_HOSTS          | Comma separated memcached hosts/ports - 192.168.1.2:11121                          |
-| POLYPTYCH_CDN            | Used for retrieving and serving favicons - https://github.com/feedbin/polyptych    |
-| POLYPTYCH_URL            | Used for retrieving and serving favicons - https://github.com/feedbin/polyptych    |
 | POSTGRES_USERNAME        | Used for connecting to database                                                    |
 | POSTMARK_API_KEY         | Used for sending email - http://postmarkapp.com                                    |
+| PUSH_URL                 | URL for the Feedbin instance - https://feedbin.me                                  |
 | RACK_ENV                 | Environment - production                                                           |
 | RAILS_ENV                | Environment - production                                                           |
 | READABILITY_API_TOKEN    | Used for Readability - http://www.readability.com                                  |
@@ -74,84 +76,22 @@ export $(cat .env)
 
 This is necessary so the environment variables can be read by both Pow and Unicorn.
 
-In production environment variables are set in the `app` users ~/.bash_profile like: 
+In production environment variables are set in the `app` users ~/.bash_profile like:
 
 ```shell
 export AWS_ACCESS_KEY_ID=aoisjf3j23oij23f
 ...
 ```
 
-###Mac OS X Install
+### Feedbin Install Guides
 
-This will get Feedbin running on a fresh Mountain Lion install. If you already have a ruby environment configured you can skip most of these steps.
+- [Mac OS X](doc/INSTALL-mac.md)
+- [Ubuntu](doc/INSTALL-ubuntu.md) (incomplete)
+- [Fedora 19](doc/INSTALL-fedora.md)
 
-**Command Line Tools (OS X Mountain Lion)**
- 
- These can be downloaded from the [Apple Developer website](https://developer.apple.com/downloads/index.action), or in XCode preferences.
-		
-**Homebrew**
- 
-    ruby -e "$(curl -fsSL https://raw.github.com/mxcl/homebrew/go)"
 
-**rbenv**
- 
-    brew update
-    brew install rbenv
-    brew install ruby-build
-    echo 'if which rbenv > /dev/null; then eval "$(rbenv init -)"; fi' >> ~/.bash_profile
-    source ~/.bash_profile
+### Pair With Me
 
-**Ruby 2.0**
- 
-    rbenv install 2.0.0-p247
-    rbenv global 2.0.0-p247
+Have a feature you would like to add but don't know where to start?
 
-**Bundler**
- 
-    gem install bundler
-
-**Postgres 9.2.4**
-   
-    cd ~/Downloads
-    curl -L http://postgresapp.com/download > postgres.zip
-    unzip postgres.zip
-    mv Postgres.app /Applications/
-    open /Applications/Postgres.app
-   
-**Redis 2.6.14**
- 
-    brew update
-    brew install redis
-
-Make sure to follow post install instructions.
-	 
-**Clone Feedbin**
- 
-    git clone https://github.com/feedbin/feedbin.git
-    cd feedbin
-    bundle
-
-**Setup the database**
-
-    rake db:setup
-		
-**Start scheduled tasks and background workers**
-
-    bundle exec foreman start
-		
-**[pow](http://pow.cx)**
-  
-    curl get.pow.cx | sh
-    ln -nfs /path/to/feedbin ~/.pow/feedbin
-
-At this point you should be able to load [feedbin.dev](http://feedbin.dev/) in your browser.
-
-###Ubuntu 12.04 Dependencies
- 
-    apt-get install -y python-software-properties
-    add-apt-repository -y ppa:pitti/postgresql
-    apt-get -y update
-    apt-get -y upgrade
-    apt-get install -y build-essential curl libreadline-dev libcurl4-gnutls-dev libpq-dev libxml2-dev libxslt1-dev libcurl4-gnutls-dev zlib1g-dev libssl-dev postgresql-client-9.2
-
-TODO: Getting the Ruby environment setup on Ubuntu and running Feedbin
+Email [support@feedbin.me](support@feedbin.me) and we'll set something up to work on it together.

@@ -4,6 +4,7 @@ module Api
     class ApiController < ApplicationController
 
       skip_before_action :verify_authenticity_token
+      before_action :valid_user, if: :signed_in?
 
       def entries_response(path_helper)
 
@@ -43,7 +44,7 @@ module Api
             entry
           }
           links_header(page_query, path_helper, params[:feed_id])
-          fresh_when(etag: @entries, last_modified: @entries.maximum(:created_at))
+          fresh_when(etag: @entries)
         end
       end
 
@@ -125,6 +126,14 @@ module Api
         end
         if links.any?
           headers['Links'] = links.join(', ')
+        end
+      end
+
+      private
+
+      def valid_user
+        if current_user.suspended
+          status_forbidden
         end
       end
 

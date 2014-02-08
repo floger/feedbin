@@ -1,7 +1,7 @@
 window.feedbin ?= {}
 
 jQuery ->
-  new feedbin.Keyboard()  
+  new feedbin.Keyboard()
 
 class feedbin.Keyboard
   constructor: ->
@@ -10,14 +10,14 @@ class feedbin.Keyboard
       entries: $('.entries')
 
     @selectColumn('feeds')
-    
+
     # The right key should be locked until entries finishes loading
     @rightLock = false
     @waitingForEntries = false
-    
+
     @bindKeys()
     @bindEvents()
-    
+
   bindEvents: ->
     $(document).on 'click', '[data-behavior~=open_item]',  (event) =>
       parent = $(event.currentTarget).parents('div')
@@ -25,69 +25,104 @@ class feedbin.Keyboard
         @selectColumn('entries')
       else if parent.hasClass('feeds')
         @selectColumn('feeds')
-    
+      return
+
     $(document).on 'ajax:complete', '[data-behavior~=show_entries]', =>
       @rightLock = false
       if @waitingForEntries
         @openFirstItem()
         @waitingForEntries = false
+      return
+
+    $(document).on 'click', '.entry-content', (event) =>
+      unless $(event.originalEvent.target).is('a') || $(event.originalEvent.target).parents('a').length > 0
+        @selectColumn('entry-content')
+      return
+
+  navigateShareMenu: (combo) ->
+    # If share menu is showing intercept up down
+    dropdown = $('[data-behavior~=toggle_share_menu]').parents('.dropdown-wrap')
+    if dropdown.hasClass('open')
+      nextShare = false
+      selectedShare = $('li.selected', dropdown)
+      if 'down' == combo
+        nextShare = selectedShare.next()
+        if nextShare.length == 0
+          nextShare = $('li:first-child', dropdown)
+      else if 'up' == combo
+        nextShare = selectedShare.prev()
+        if nextShare.length == 0
+          nextShare = $('li:last-child', dropdown)
+
+      if nextShare
+        $('li.selected', dropdown).removeClass('selected')
+        nextShare.addClass('selected')
+
+  navigateFeedbin: (combo) ->
+    @setEnvironment()
+    if 'pagedown' == combo
+      if 'entry-content' == @selectedColumnName() || feedbin.isFullScreen()
+        @scrollContent(@contentHeight() - 100, 'down')
+    else if 'pageup' == combo
+      if 'entry-content' == @selectedColumnName() || feedbin.isFullScreen()
+        @scrollContent(@contentHeight() - 100, 'up')
+    else if 'down' == combo || 'j' == combo
+      if 'entry-content' == @selectedColumnName() || feedbin.isFullScreen()
+        @scrollContent(30, 'down')
+      else
+        @item = @next
+        @selectItem()
+    else if 'up' == combo || 'k' == combo
+      if 'entry-content' == @selectedColumnName() || feedbin.isFullScreen()
+        @scrollContent(30, 'up')
+      else
+        @item = @previous
+        @selectItem()
+    else if 'right' == combo || 'l' == combo
+      if 'feeds' == @selectedColumnName()
+        if @rightLock
+          @waitingForEntries = true
+        else
+          @openFirstItem()
+      else if 'entries' == @selectedColumnName()
+        @selectColumn('entry-content')
+
+    else if 'left' == combo || 'h' == combo
+      if 'entry-content' == @selectedColumnName()
+        @selectColumn('entries')
+      else if 'entries' == @selectedColumnName()
+        if @columns['feeds'].find('.selected').length > 0
+          @selectColumn('feeds')
+        else
+          $("[data-feed-id=#{feedbin.feedCandidates[0]}]").find('[data-behavior~=open_item]').click()
+          feedbin.feedCandidates = []
+
+  navigateEntryContent: (combo) ->
+    @selectColumn('entries')
+    @setEnvironment()
+    if 'pagedown' == combo
+      @scrollContent(@contentHeight() - 100, 'down')
+    else if 'pageup' == combo
+      @scrollContent(@contentHeight() - 100, 'up')
+    else if 'down' == combo
+      @scrollContent(30, 'down')
+    else if 'up' == combo
+      @scrollContent(30, 'up')
+    else if 'j' == combo
+      @item = @next
+      @selectItem()
+    else if 'k' == combo
+      @item = @previous
+      @selectItem()
 
   bindKeys: ->
-    Mousetrap.bind ['up', 'down', 'left', 'right', 'j', 'k', 'h', 'l'], (event, combo) =>
-      
-      # If share menu is showing intercept up down
-      dropdown = $('.dropdown-wrap')
+    Mousetrap.bind ['pageup', 'pagedown', 'up', 'down', 'left', 'right', 'j', 'k', 'h', 'l'], (event, combo) =>
       if feedbin.shareOpen()
-        nextShare = false
-        selectedShare = $('li.selected', dropdown)
-        if 'down' == combo
-          nextShare = selectedShare.next()
-          if nextShare.length == 0
-            nextShare = $('li:first-child', dropdown)
-        else if 'up' == combo
-          nextShare = selectedShare.prev()
-          if nextShare.length == 0
-            nextShare = $('li:last-child', dropdown)
-        
-        if nextShare
-          $('li.selected', dropdown).removeClass('selected')
-          nextShare.addClass('selected')
-
-        event.preventDefault()
-        return false
-
-      @setEnvironment()
-      
-      if 'down' == combo || 'j' == combo
-        if 'entry-content' == @selectedColumnName()
-          @scrollContent(30, 'down')
-        else
-          @item = @next
-          @selectItem()
-      else if 'up' == combo || 'k' == combo
-        if 'entry-content' == @selectedColumnName()
-          @scrollContent(30, 'up')
-        else
-          @item = @previous
-          @selectItem()
-      else if 'right' == combo || 'l' == combo
-        if 'feeds' == @selectedColumnName()
-          if @rightLock
-            @waitingForEntries = true
-          else
-            @openFirstItem()
-        else if 'entries' == @selectedColumnName()
-          @selectColumn('entry-content')
-          
-      else if 'left' == combo || 'h' == combo
-        if 'entry-content' == @selectedColumnName()
-          @selectColumn('entries')
-        else if 'entries' == @selectedColumnName()
-          if @columns['feeds'].find('.selected').length > 0
-            @selectColumn('feeds')
-          else
-            $("[data-feed-id=#{feedbin.feedCandidates[0]}]").find('[data-behavior~=open_item]').click()
-            feedbin.feedCandidates = []
+        @navigateShareMenu(combo)
+      else if feedbin.isFullScreen()
+        @navigateEntryContent(combo)
+      else
+        @navigateFeedbin(combo)
       event.preventDefault()
 
     Mousetrap.bind ['space'], (event, combo) =>
@@ -119,27 +154,36 @@ class feedbin.Keyboard
 
     # Go to all
     Mousetrap.bind 'g a', (event, combo) =>
+      $('body').removeClass('full-screen')
       $('[data-behavior~=all_unread] [data-behavior~=open_item]').click()
       event.preventDefault()
-      
+
     # Go to starred
     Mousetrap.bind 'g s', (event, combo) =>
+      $('body').removeClass('full-screen')
       $('[data-behavior~=starred] [data-behavior~=open_item]').click()
       event.preventDefault()
-      
+
     # Mark as read
     Mousetrap.bind 'shift+a', (event, combo) =>
       currentEntry = @columns['entries'].find('.selected')
       @alternateEntryCandidates = []
       @alternateEntryCandidates.push currentEntry.next() if currentEntry.next().length
       @alternateEntryCandidates.push currentEntry.prev() if currentEntry.prev().length
-        
-      $('[data-behavior~=mark_all_as_read]').find('[type=submit]').click()
+
+      $('[data-behavior~=mark_all_as_read]').first().click()
       event.preventDefault()
-      
+
     # Add subscription
     Mousetrap.bind 'a', (event, combo) =>
-      $('[name="subscription[feeds][feed_url]"]').focus()
+      $('body').removeClass('full-screen')
+      $('[data-behavior~=show_subscribe]').click()
+      event.preventDefault()
+
+    # Focus search
+    Mousetrap.bind '/', (event, combo) =>
+      $('body').removeClass('full-screen')
+      $('[name="query"]').focus()
       event.preventDefault()
 
     # Show Keyboard shortcuts
@@ -168,12 +212,12 @@ class feedbin.Keyboard
     Mousetrap.bind 'e', (event, combo) =>
       content = $('[data-behavior~=feeds_target]').find('.selected').find('[data-behavior~=toggle_drawer]').click()
       event.preventDefault()
-      
+
     # refresh
     Mousetrap.bind 'r', (event, combo) =>
       feedbin.refresh()
       event.preventDefault()
-      
+
     # share menu
     Mousetrap.bind 'f', (event, combo) =>
       shareButton = $("[data-behavior~=toggle_share_menu]")
@@ -181,20 +225,33 @@ class feedbin.Keyboard
         shareButton.click()
         event.preventDefault()
 
+    # Full Screen
+    Mousetrap.bind 'F', (event, combo) =>
+      if $('[data-behavior~=entry_content_target]').html().length > 0
+        feedbin.toggleFullScreen()
+      event.preventDefault()
+
     Mousetrap.bind 'enter', (event, combo) =>
       if feedbin.shareOpen()
         dropdown = $('.dropdown-wrap')
         $('li.selected a', dropdown)[0].click()
         event.preventDefault()
-      
-    # Unfocus field, 
+
+    # Unfocus field,
     Mousetrap.bindGlobal 'escape', (event, combo) =>
+      feedbin.hideSubscribe()
       if feedbin.modalShowing == true
         $('.modal').modal('hide')
         event.preventDefault()
+
       if $('[name="subscription[feeds][feed_url]"]').is(':focus')
         $('[name="subscription[feeds][feed_url]"]').blur()
         event.preventDefault()
+
+      if $('[name=query]').is(':focus')
+        $('[name=query]').blur()
+        event.preventDefault()
+
       if feedbin.shareOpen()
         dropdown = $('.dropdown-wrap')
         dropdown.removeClass('open')
@@ -225,13 +282,13 @@ class feedbin.Keyboard
     else
       @item = @selected
       @clickItem()
-  
+
   openFirstItem: ->
     @selectColumn('entries')
     selectedEntry = @columns['entries'].find('.selected')
     unless selectedEntry.length > 0
       @selectedColumn.find('li:first-child [data-behavior~=open_item]').click()
-  
+
   selectedColumnName: ->
     if @selectedColumn.hasClass 'feeds'
       'feeds'
@@ -239,12 +296,12 @@ class feedbin.Keyboard
       'entries'
     else if @selectedColumn.hasClass 'entry-content'
       'entry-content'
-  
+
   selectColumn: (column) ->
     @selectedColumn = $(".#{column}")
     $("[data-behavior~=content_column]").removeClass('selected')
     $(".#{column}").closest("[data-behavior~=content_column]").addClass('selected')
-        
+
   itemInView: ->
     try
       drawer = @item.find('.drawer').outerHeight()
@@ -253,12 +310,12 @@ class feedbin.Keyboard
     @itemAboveView = @itemPosition.bottom < @item.outerHeight() - drawer
     @itemBelowView = @itemPosition.bottom > @containerHeight
     @itemAboveView && @itemBelowView
-  
+
   selectedItem: ->
     selectedItem = @selectedColumn.find('.selected')
     if selectedItem.length == 0 && 'entry-content' != @selectedColumnName()
 
-      possibilities = 
+      possibilities =
         entries: @columns['entries'].find('.selected')
         feeds: @columns['feeds'].find('.selected')
 
@@ -284,7 +341,7 @@ class feedbin.Keyboard
     else
       prev = @selectedItem().prev()
     prev
-    
+
   nextItem: ->
     @drawer = $('.drawer', @selectedItem())
     if @inDrawer()
@@ -296,7 +353,7 @@ class feedbin.Keyboard
     else
       next = @selectedItem().next()
     next
-    
+
   inDrawer: ->
     @selectedItem().parents('.drawer').length >= 1
 
@@ -319,12 +376,12 @@ class feedbin.Keyboard
         offset = 17 # above chrome's status bar
       else
         offset = 0
-      @scrollColumn (@itemPosition.bottom + @scrollTop + offset) - @containerHeight 
+      @scrollColumn (@itemPosition.bottom + @scrollTop + offset) - @containerHeight
     else
-  
+
   scrollColumn: (position) ->
-    @selectedColumn.prop 'scrollTop', position 
-    
+    @selectedColumn.prop 'scrollTop', position
+
   # Space bar nav
   hasUnreadFeeds: ->
     @columns['feeds'].find('.selected').nextAll('li').find('.count').not('.hide').length
@@ -352,7 +409,7 @@ class feedbin.Keyboard
 
   hasEntryContent: ->
     @entryScrollHeight() - $('.entry-content').prop('scrollTop') > 0
-  
+
   scrollContent: (interval, direction) ->
     if 'down' == direction
       newPosition = $('.entry-content').prop('scrollTop') + interval
@@ -364,4 +421,6 @@ class feedbin.Keyboard
 
   entryScrollHeight: ->
     $('.entry-content').prop('scrollHeight') - $('.entry-content').prop('offsetHeight')
-  
+
+  contentHeight: ->
+    $('.entry-content').prop('clientHeight')

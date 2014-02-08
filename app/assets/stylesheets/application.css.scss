@@ -1,6 +1,11 @@
+/*
+*= require mediaelement_rails
+*= require mediaelement_rails/mejs-skins
+*/
+
 @import "../../../vendor/assets/stylesheets/github";
+@import "../../../vendor/assets/stylesheets/bigfoot-default";
 
 @import "functions";
-@import "fonts";
 @import "home";
 @import "site";

@@ -3,11 +3,10 @@ class SessionsController < ApplicationController
   skip_before_action :authorize
 
   def new
-    @track = true
+    @user = current_user
   end
-  
+
   def create
-    @track = true
     user = User.where('lower(email) = ?', params[:email].try(:strip).try(:downcase)).take
     if user && user.authenticate(params[:password])
       sign_in user, params[:remember_me]
@@ -21,5 +20,5 @@ class SessionsController < ApplicationController
   def destroy
     sign_out
     redirect_to root_url
-  end  
+  end
 end

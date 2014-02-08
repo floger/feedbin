@@ -1,1 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="19.383" height="24"><path fill="#7eaabc" d="M17.82 9.639h-1.174v-4.383c0-2.703-2.534-5.256-5.21-5.256h-4.473c-2.677 0-5.211 2.553-5.211 5.256v4.383h-1.173c-.319 0-.579.228-.579.513v12.113c0 .284.26.516.579.516h17.241c.318 0 .578-.231.578-.516v-12.113c0-.285-.259-.513-.578-.513zm-12.564-4.383c0-1.227.551-1.752 1.752-1.752h4.383c1.201 0 1.752.525 1.752 1.752v4.383h-7.887v-4.383z"/></svg>
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generator: Adobe Illustrator 16.0.4, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
+	 width="17px" height="16px" viewBox="0 0 17 16" enable-background="new 0 0 17 16" xml:space="preserve">
+<g>
+	<path fill="#3399ff" d="M15,8c0.552,0,1,0.449,1,1v5c0,0.552-0.448,1-1,1H3c-0.551,0-1-0.448-1-1V9c0-0.551,0.449-1,1-1H15 M15,7H3
+		C1.895,7,1,7.896,1,9v5c0,1.104,0.896,2,2,2h12c1.104,0,2-0.896,2-2V9C17,7.896,16.104,7,15,7L15,7z"/>
+</g>
+<path fill="#3399ff" d="M14.5,7h-1V5.454C13.5,2.998,11.481,1,9,1S4.5,2.998,4.5,5.454V7h-1V5.454C3.5,2.447,5.967,0,9,0
+	c3.033,0,5.5,2.447,5.5,5.454V7z"/>
+</svg>

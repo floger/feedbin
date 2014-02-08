@@ -1,7 +1,7 @@
 class FeedFetcher
-  
+
   attr_accessor :feed, :feed_options
-  
+
   def initialize(url, site_url = nil)
     @url          = normalize_url(url)
     @site_url     = normalize_url(site_url) if site_url
@@ -10,19 +10,19 @@ class FeedFetcher
     @parsed_feed  = nil
     @feed_options = []
   end
-  
+
   def create_feed!
     unless feed_exists?
       create_or_get_options
     end
     self
   end
-  
+
   def feed_exists?
     @feed = Feed.where(feed_url: @url).first
     @feed.instance_of?(Feed)
   end
-  
+
   def normalize_url(url)
     url = url.strip
     url = url.gsub(/^ht*p(s?):?\/*/, 'http\1://')
@@ -33,7 +33,7 @@ class FeedFetcher
       "http://#{url}"
     end
   end
-  
+
   def create_or_get_options
     @parsed_feed = fetch_and_parse
     if is_feed?(@parsed_feed)
@@ -42,17 +42,17 @@ class FeedFetcher
       get_options
     end
   end
-  
+
   def get_options
     content = Feedzirra::Feed.fetch_raw(@url, {user_agent: 'Feedbin'})
     if content.is_a?(String)
       content = Nokogiri::HTML(content)
-      
+
       # Case insensitive rss link search
       links = content.search("//link[translate(@type, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz') = 'application/rss+xml'] |" +
                              "//link[translate(@type, 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz') = 'application/atom+xml']")
-      
-      links.map do |link| 
+
+      links.map do |link|
         href = link.get_attribute('href')
         title = link.get_attribute('title')
         unless href.nil?
@@ -65,7 +65,7 @@ class FeedFetcher
         end
       end
     end
-    
+
     if @feed_options.length == 1
       @site_url = @url
       @url = @feed_options.first[:href]
@@ -77,24 +77,52 @@ class FeedFetcher
         get_options
       end
     end
-    
+
   end
-  
+
   def create!
     # Figure out what the url to the site is
     unless @site_url
       get_site_url
     end
-    
-    @feed = Feed.where(feed_url: @parsed_feed.feed_url).first
-    
+
     # now that we have a feed url recheck if a feed exists
+    @feed = Feed.where(feed_url: @parsed_feed.feed_url).first
+
     unless @feed
       @feed = Feed.create_from_feedzirra(@parsed_feed, @site_url)
+      if @parsed_feed.respond_to?(:hubs) && !@parsed_feed.hubs.blank?
+        hub_secret = Push::hub_secret(@feed.id)
+        push_subscribe(@parsed_feed, @feed.id, Push::callback_url(feed), hub_secret)
+      end
     end
-    
+
   end
-  
+
+  def push_subscribe(feedzirra, feed_id, push_callback, hub_secret)
+    begin
+      feedzirra.hubs.each do |hub|
+        uri = URI(hub)
+        uri.scheme = 'https' # force https encrypt request
+        Curl.post(uri.to_s, {
+          'hub.mode' => 'subscribe',
+          'hub.topic' => feedzirra.feed_url,
+          'hub.secret' => hub_secret,
+          'hub.callback' => push_callback,
+          'hub.verify' => 'async'
+        })
+      end
+    rescue Exception => e
+      if defined?(Honeybadger)
+        Honeybadger.notify(
+          error_class: "PuSH",
+          error_message: "PuSH Subscribe Failed",
+          parameters: e
+        )
+      end
+    end
+  end
+
   def get_site_url
     if @site_url
       @site_url = @site_url
@@ -110,16 +138,16 @@ class FeedFetcher
       @site_url = url_from_link(@url)
     end
   end
-  
+
   def url_from_link(link)
     uri = URI.parse(link)
     URI::HTTP.build(host: uri.host).to_s
   end
-  
+
   def is_feed?(feed)
-    feed.respond_to?(:entries) && feed.entries.length > 0
+    feed.class.name.starts_with?('Feedzirra')
   end
-  
+
   # Fetch and normalize feed
   def fetch_and_parse(options = {}, saved_feed_url = nil)
     defaults = {user_agent: 'Feedbin'}
@@ -128,6 +156,18 @@ class FeedFetcher
     Timeout::timeout(20) do
       feedzirra = Feedzirra::Feed.fetch_and_parse(@url, options)
     end
+    if feedzirra.respond_to?(:hubs) && !feedzirra.hubs.blank? && options[:push_callback] && options[:feed_id]
+      push_subscribe(feedzirra, options[:feed_id], options[:push_callback], options[:hub_secret])
+    end
+    normalize(feedzirra, options, saved_feed_url)
+  end
+
+  def parse(xml_string, saved_feed_url)
+    feedzirra = Feedzirra::Feed.parse(xml_string)
+    normalize(feedzirra, {}, saved_feed_url)
+  end
+
+  def normalize(feedzirra, options = {}, saved_feed_url = nil)
     if feedzirra && feedzirra.respond_to?(:feed_url)
       feedzirra.etag          = feedzirra.etag ? feedzirra.etag.strip.gsub(/^"/, '').gsub(/"$/, '') : nil
       feedzirra.last_modified = feedzirra.last_modified
@@ -151,6 +191,14 @@ class FeedFetcher
         entry.entry_id        = entry.entry_id ? entry.entry_id.strip : nil
         entry._public_id_     = build_public_id(entry, feedzirra, saved_feed_url)
         entry._old_public_id_ = build_public_id(entry, feedzirra)
+        if entry.try(:enclosure_type) && entry.try(:enclosure_url)
+          data = {}
+          data[:enclosure_type] = entry.enclosure_type ? entry.enclosure_type : nil
+          data[:enclosure_url] = entry.enclosure_url ? entry.enclosure_url : nil
+          data[:enclosure_length] = entry.enclosure_length ? entry.enclosure_length : nil
+          data[:itunes_duration] = entry.itunes_duration ? entry.itunes_duration : nil
+          entry._data_ = data
+        end
       end
       if feedzirra.entries.any?
         feedzirra.entries = feedzirra.entries.uniq { |entry| entry._public_id_ }
@@ -158,32 +206,27 @@ class FeedFetcher
     end
     feedzirra
   end
-  
+
   def log(message)
     Rails.logger.info(message)
   end
-  
+
   # This is the id strategy
-  # All values are stripped 
+  # All values are stripped
   # feed url + id
   # feed url + link + utc iso 8601 date
   # feed url + link + title
-  
+
   # WARNING: changes to this will break how entries are identified
   # This can only be changed with backwards compatibility in mind
   def build_public_id(entry, feedzirra, saved_feed_url = nil)
     if saved_feed_url
       id_string = saved_feed_url.dup
-    else      
+    else
       id_string = feedzirra.feed_url.dup
     end
-    
-    # TODO this can probably be removed in the future.
-    # This is a band aid because ITunesRSSItem does not remap guid -> entry_id
-    # The fix would be to update Feedzirra to map correctly and remove this condition
-    if entry.is_a?(Feedzirra::Parser::ITunesRSSItem) && entry.guid && entry.published && entry.published > ITUNES_RSS_ITEM_FIX_DATE
-      id_string << entry.guid.dup
-    elsif entry.entry_id
+
+    if entry.entry_id
       id_string << entry.entry_id.dup
     else
       if entry.url
@@ -198,6 +241,6 @@ class FeedFetcher
     end
     Digest::SHA1.hexdigest(id_string)
   end
-  
-  
+
+
 end
